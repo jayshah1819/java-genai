@@ -21,6 +21,7 @@ import static java.util.stream.Collectors.joining;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.google.auth.oauth2.GoogleCredentials;
+import com.google.genai.errors.GenAiIOException;
 import com.google.genai.types.HttpOptions;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -88,9 +89,11 @@ final class ReplayApiClient extends ApiClient {
     this.clientMode = clientMode;
   }
 
-  static String readString(Path path) throws IOException {
+  static String readString(Path path) {
     try (Stream<String> stream = Files.lines(path)) {
       return stream.collect(joining(System.lineSeparator()));
+    } catch (IOException e) {
+      throw new GenAiIOException("Failed to read replay file. ", e);
     }
   }
 
@@ -112,13 +115,14 @@ final class ReplayApiClient extends ApiClient {
       this.replayIndex = 0;
       this.sdkResponseIndex = 0;
     } catch (IOException e) {
-      throw new IllegalArgumentException("Failed to read replay file: " + e, e);
+      throw new GenAiIOException("Failed to read replay file: " + e, e);
     }
   }
 
   /** Sends a Http Post request given the path and request json string. */
   @SuppressWarnings("unchecked")
-  public ApiResponse post(String path, String requestJson) throws IOException {
+  @Override
+  public ApiResponse post(String path, String requestJson) {
     if (this.clientMode.equals("replay") || this.clientMode.equals("auto")) {
       System.out.println("    === Using replay for ID: " + this.replayId);
       List<Object> interactions = Arrays.asList(this.replaySession.get("interactions"));
